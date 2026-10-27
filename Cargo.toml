@@ -1,0 +1,15 @@
+[package]
+name = "rostr"
+version = "0.1.0"
+edition = "2024"
+rust-version = "1.85"
+description = "AI Model Resource Registry — discover, evaluate, and select AI models"
+license = "Apache-2.0"
+repository = "https://github.com/kookyleo/rostr"
+readme = "README.md"
+keywords = ["ai", "models", "registry", "cli", "agents"]
+categories = ["command-line-utilities"]
+include = ["src/**", "Cargo.toml", "Cargo.lock", "README.md", "LICENSE"]
+
+[dependencies]
+clap = "4.5"
