@@ -194,7 +194,7 @@ fn migration_preserves_discovery_and_readonly_does_not_migrate() {
     assert_eq!(
         c.pragma_query_value(None, "user_version", |r| r.get::<_, i64>(0))
             .unwrap(),
-        2
+        rostr::store::SCHEMA_VERSION
     );
     assert_eq!(
         c.query_row("SELECT id FROM scans", [], |r| r.get::<_, i64>(0))

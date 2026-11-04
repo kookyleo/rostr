@@ -128,8 +128,8 @@ impl QuotaRepository for Store {
             .conn
             .pragma_query_value(None, "user_version", |r| r.get(0))?;
         ensure!(
-            version == 2,
-            "quota requires schema v2; run `rostr quota refresh --local` or `rostr quota import <snapshot>` to migrate; query is read-only"
+            version >= 2,
+            "quota requires schema v2 or newer; run `rostr quota refresh --local` or `rostr quota import <snapshot>` to migrate; query is read-only"
         );
         ensure!(q.max_age_ms >= 0, "max age must be nonnegative");
         for r in &q.requirements {

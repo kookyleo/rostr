@@ -1,0 +1,5 @@
+Model version,mean_score,Best score (across scorers),Release date,Organization,Country,Training compute (FLOP),Training compute notes,stderr,Log viewer,Logs,Started at,id
+claude-opus-4-5-20251101,0.78,0.79,2025-11-24,Anthropic,United States of America,,"multi-line
+note, with a comma",0.02,,,2025-12-01T10:00:00.000Z,a1
+gpt-5-2025-08-07_high,0.70,0.71,2025-08-07,OpenAI,United States of America,,,0.02,,,2025-08-20T10:00:00.000Z,a2
+gpt-5-2025-08-07_medium,0.66,0.67,2025-08-07,OpenAI,United States of America,,,0.02,,,2025-08-21T10:00:00.000Z,a3

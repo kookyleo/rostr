@@ -14,7 +14,7 @@ use crate::discover::{Candidate, Source};
 use crate::model_id;
 
 pub const FILE_NAME: &str = "rostr.db";
-const SCHEMA_VERSION: i64 = 2;
+pub const SCHEMA_VERSION: i64 = 3;
 
 const SCHEMA: &str = "
 CREATE TABLE models (
@@ -96,7 +96,7 @@ impl Store {
         let conn = Connection::open_with_flags(path, OpenFlags::SQLITE_OPEN_READ_ONLY)
             .with_context(|| format!("cannot open {}", path.display()))?;
         let version: i64 = conn.pragma_query_value(None, "user_version", |r| r.get(0))?;
-        if version != 1 && version != SCHEMA_VERSION {
+        if !(1..=SCHEMA_VERSION).contains(&version) {
             bail!(
                 "{} has schema version {version}; run `rostr discover` to update it",
                 path.display()
@@ -119,6 +119,9 @@ impl Store {
         }
         if version < 2 {
             tx.execute_batch(include_str!("quota/schema.sql"))?;
+        }
+        if version < 3 {
+            tx.execute_batch(include_str!("score/schema.sql"))?;
         }
         tx.pragma_update(None, "user_version", SCHEMA_VERSION)?;
         tx.commit()?;
