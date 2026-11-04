@@ -1,6 +1,7 @@
 # Local quota observations
 
-`rostr quota refresh --local` reads existing Codex and Grok Build state directly.
+`rostr quota refresh --local` reads existing Codex and Grok Build state directly,
+plus the Claude Code status line snapshot that `rostr quota init --claude` sets up.
 `rostr quota import PATH` remains available for explicit JSON/YAML exports. Both
 validate observations before recording each report atomically. It never launches an agent, executes a
 credential command, reads authentication files, or connects to a network. The
@@ -8,6 +9,7 @@ independent `QuotaProbe` interface exposes only local context and
 `AccessPolicy::LocalOnly`; discovery does not run probes.
 
 ```sh
+rostr quota init --claude          # once: wrap the Claude Code statusLine
 rostr quota refresh --local
 rostr quota refresh --local --agent codex --json
 rostr quota import tests/fixtures/quota/claude-statusline.json
@@ -51,9 +53,11 @@ The independent native registry runs both file readers on local refresh and repo
 `not_installed`, `no_observation`, `unsupported`, or `partial` per probe. No agent
 is launched, no App Server/ACP/HTTP call is made, and auth files are never opened.
 Directory existence or an executable found on PATH only establishes installation.
-`--agent codex|grok-build` restricts refresh; `--max-age` defaults to 60 seconds.
-An optional `--claude-statusline PATH` also reads the existing Claude export format
-below. There is no automatic hook installation or guessed Claude cache path.
+`--agent claude-code|codex|grok-build` restricts refresh; `--max-age` defaults to
+60 seconds. Refresh also reads the fixed Claude status line snapshots described
+below. An optional `--claude-statusline PATH` reads any other file in the same
+export format. Rostr never guesses a Claude cache path: Claude Code keeps no
+quota on disk, so the snapshot exists only after `rostr quota init --claude`.
 
 | Observer | Files read | Accepted evidence |
 | --- | --- | --- |
@@ -113,6 +117,109 @@ versions, missing windows, history outside these bounds, account binding, model
 specific sharing, and richer credit/billing formats remain gaps. No observer
 executes configuration commands or tries a network fallback.
 
+## Claude Code status line (`rostr quota init --claude`)
+
+Claude Code has no silent `/usage` call and no on-disk quota cache. Its official
+channel is `statusLine.command`: Claude Code runs one command and feeds it the
+session JSON on stdin. For Claude subscribers (Pro/Max and similar), that JSON
+carries `rate_limits.five_hour` and `rate_limits.seven_day` after the first API
+response of a session. Rostr hooks into this channel. It is not a proxy: it never
+sees Anthropic traffic, starts Claude, reads credentials or uses a network.
+
+```sh
+rostr quota init --claude                    # wrap or install; safe to re-run
+rostr quota init --claude --dry-run          # show what would change
+rostr quota init --claude --account work     # set the opaque account label
+rostr quota init --claude --uninstall        # restore the previous status line
+```
+
+`init` edits `settings.json` in `$CLAUDE_CONFIG_DIR`, else `~/.claude` (override
+with `--claude-config-dir DIR`):
+
+- **A status line exists:** Rostr wraps it. The `statusLine` object keeps its other
+  fields (such as `padding`); only `command` becomes
+  `<rostr> quota statusline --state <state file>`. The previous object is saved in
+  the state file.
+- **No status line:** Rostr installs the same wrapper, which prints a short line
+  such as `Sonnet · 5h 25% · 7d 50%`.
+- **Re-running** detects the Rostr command (` quota statusline --state `) and
+  updates it in place, so wrappers never stack. The previous command and account
+  label are kept unless `--account` is given. If you replace the status line
+  yourself after installing, the next `init` wraps the new command.
+- Other keys and their order are preserved. The file is replaced atomically, with
+  its permissions; a symlinked `settings.json` is written through its target. If
+  the file changes while Rostr edits it, nothing is written. The first `init`
+  copies the original file to the settings backup below.
+
+On every status line update the wrapper:
+
+1. reads stdin once (up to 8 MiB);
+2. if the JSON has a `five_hour` or `seven_day` window with a numeric
+   `used_percentage`, writes a version 1 `claude_statusline` envelope (the format
+   below) atomically to the fixed snapshot path. Only `used_percentage` and
+   integer `resets_at` of those two windows are kept. Session ID, paths, cost,
+   context window and every other field are dropped. Without rate limits (API key
+   users, or before the first response) the last snapshot is left unchanged;
+3. re-feeds the same bytes to the previous command through `sh -c` (`cmd /C` on
+   Windows), passing its stdout, stderr and exit status through. Without a previous
+   command it prints the minimal line.
+
+A Rostr error never breaks the status bar: the wrapper still prints a line and
+exits 0. `ROSTR_STATUSLINE_WRAPPED` guards against a wrapper calling itself.
+
+| File | Path |
+| --- | --- |
+| state | `<config dir>/claude-statusline/<instance>.json` (account, paths, previous `statusLine`) |
+| settings backup | `<config dir>/claude-statusline/<instance>.settings-backup.json` |
+| snapshot | `<data dir>/claude-statusline/<instance>.json`, read by `refresh --local` |
+
+`<config dir>` and `<data dir>` are the scope and database directories (see the
+README). The wrapper command contains the absolute paths resolved at `init` time,
+so it works even when Claude Code runs without your shell variables. Re-run
+`init` after moving the `rostr` binary. The instance is `default` for `~/.claude`,
+else `dir-<digest of the directory>`, or `--instance NAME`.
+
+`refresh --local` reads up to 16 snapshot files, one report per instance with
+probe ID `claude-statusline`. No file gives `not_installed` (no Claude config
+directory) or `no_observation`; a damaged file gives `unsupported` without
+stopping other observers. `rostr quota import <snapshot>` also still works.
+
+**Identity.** Auto-filled: `agent: claude-code`, `instance`, `model` (from
+`model.id`, canonicalized like discovery, else `anthropic/unknown`), `raw_model`,
+`raw_provider: anthropic`, `route: anthropic-subscription`, `billing_mode:
+subscription` (Claude only reports these windows to subscribers), and
+`observed_at` (the wrapper's clock: status line JSON has no timestamp, and the
+values are as fresh as Claude's last API response). User-supplied: `account`, an
+opaque label that defaults to `claude-<instance>`. Rostr does not read the logged-in
+account; use a different `--account` (or Claude config directory and instance) per
+Claude login so that two subscriptions never share a balance. `profile` is null.
+Buckets are `user_supplied` confidence, valid for at most 60 seconds (or
+`--max-age`) after observation and never past their reset.
+
+**Policy checks.** `init` reads Claude Code managed settings
+(`/etc/claude-code/managed-settings.json`, `/Library/Application
+Support/ClaudeCode/managed-settings.json`, `C:\Program
+Files\ClaudeCode\managed-settings.json`, and `managed-settings.d/*.json` beside
+them) and stops without writing when:
+
+- managed `disableAllHooks` is true (it also disables status lines);
+- managed settings define `statusLine` (it overrides user settings; ask the
+  administrator to wrap the managed command);
+- managed `allowManagedHooksOnly` is true, unless `--force` is given;
+- your own `disableAllHooks` is true (Rostr never flips it);
+- `settings.json` is not valid JSON, or `statusLine` is not a `command` object.
+
+An unreadable managed file is a warning. A project `.claude/settings.json` or
+`settings.local.json` with its own `statusLine` overrides the user setting in that
+project, so no snapshot is written there.
+
+**Uninstall.** `rostr quota init --claude --uninstall` puts the saved previous
+`statusLine` object back exactly, or removes `statusLine` if Rostr installed the
+only one, and deletes the state file. If the current status line is not Rostr's,
+settings are left alone. The snapshot, the backup and recorded history are kept;
+delete them by hand if you like. To restore by hand, copy `previous` from the state
+file into `statusLine`, or restore the settings backup.
+
 ## Claude statusline export
 
 The version 1 Rostr envelope wraps an existing native statusline payload with an
@@ -126,10 +233,10 @@ the [statusline documentation](https://code.claude.com/docs/en/statusline)
 reviewed in the design notes on 2026-11-04. New gateway monetary window formats
 are not supported yet.
 
-Export only from a statusline already invoked during normal use. Rostr does not
-install or replace statusline hooks and never triggers a prompt to obtain a
-sample. The wrapper must preserve the original observation time: copying an old
-file does not refresh it. Absent native rate-limit windows supply no balance.
+Export only from a statusline already invoked during normal use. Rostr changes
+the status line only through the explicit `rostr quota init --claude` above, and
+never triggers a prompt to obtain a sample. A wrapper must preserve the original
+observation time: copying an old file does not refresh it. Absent native rate-limit windows supply no balance.
 Context-window usage and session token counts are ignored. Percent remains percent
 and is never converted into a token budget. Values outside 0–100 are preserved with
 an anomaly flag and unknown remaining balance.

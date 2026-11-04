@@ -16,6 +16,7 @@ model for you; callers apply their own policy to the data.
 | --- | --- |
 | `rostr discover` | Implemented: finds local agents and models, saves your model scope |
 | `rostr quota refresh --local` / `import` / `query` | Implemented: local quota observations with explicit Unknown states |
+| `rostr quota init --claude` | Implemented: wraps the Claude Code `statusLine` to capture subscription rate limits |
 | `rostr score refresh` / `import` / `query` / `sources` | Implemented: public benchmark scores on five axes |
 
 ### Roadmap
@@ -23,7 +24,8 @@ model for you; callers apply their own policy to the data.
 - Score phase 2: a TUI to review unmatched or ambiguous model mappings
   (today: `scores.yaml` aliases), and more verified sources for the
   `instruction` and `multimodal` axes.
-- More native local quota observers (only Codex and Grok Build today).
+- More native local quota observers (Codex, Grok Build and the Claude Code
+  status line today).
 
 ## Install
 
@@ -42,12 +44,21 @@ rostr discover --yes      # save the default selection without the TUI
 ### Local quota observations
 
 ```sh
+rostr quota init --claude   # once: wrap Claude Code's statusLine (undo: --uninstall)
 rostr quota refresh --local
 # Optional export import (for example, an existing Claude statusline snapshot):
 rostr quota import /path/to/quota-snapshot.yaml
 rostr quota query --agent claude-code --metric subscription_usage --unit percent \
   --min-remaining 20 --max-age 120 --json
 ```
+
+Claude Code keeps no quota on disk; its official channel is the status line
+command. `rostr quota init --claude` wraps your existing `statusLine.command` in
+`~/.claude/settings.json` (or installs a minimal one), keeping your status bar
+working. Each update writes the `rate_limits` windows, and nothing else, to a fixed
+snapshot that `refresh --local` reads. Rostr is not a proxy. Re-running is safe;
+managed policies that disable or override status lines stop it without writing.
+The account label is yours to assign (`--account`).
 
 Quota import supports JSON/YAML snapshots and existing Claude statusline exports.
 It never starts agents, reads credentials or connects to a network. Query is

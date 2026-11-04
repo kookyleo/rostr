@@ -24,7 +24,7 @@ const MODEL_VARS: &[&str] = &[
 
 /// Turns a Claude Code model setting into canonical IDs.
 /// Handles aliases, `[1m]` context suffixes, Bedrock and Vertex forms.
-fn resolve(raw: &str) -> Vec<String> {
+pub(crate) fn resolve(raw: &str) -> Vec<String> {
     let mut s = raw.trim().to_ascii_lowercase();
     if let Some(i) = s.find('[') {
         s.truncate(i);
