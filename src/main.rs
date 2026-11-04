@@ -23,7 +23,7 @@ fn cli() -> Command {
             Command::new("discover")
                 .about("Discover local AI agents and models, then choose the models to track")
                 .long_about(
-                    "Scans installed AI agents (Claude Code, Codex, OpenCode, Grok CLI, Gemini CLI) \
+                    "Scans installed AI agents (Claude Code, Codex, OpenCode, Grok CLI, Gemini CLI, Pi) \
                      for configured and available models, then opens a TUI to choose the models \
                      to track. The choice is saved to scope.yaml. Discovery reads local files \
                      only: it sends no inference request and uses no model tokens.",

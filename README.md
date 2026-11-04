@@ -42,6 +42,7 @@ network request and uses no model tokens. Supported agents:
 | OpenCode    | `$XDG_CONFIG_HOME/opencode/opencode.json[c]` |
 | Grok CLI    | `~/.grok/config.toml`, `models_cache.json` |
 | Gemini CLI  | `~/.gemini/settings.json`, `GEMINI_MODEL` |
+| Pi          | `$PI_CODING_AGENT_DIR` or `~/.pi/agent`: `settings.json` (default and enabled models), `models.json` |
 
 TUI keys: `↑↓` (or `j`/`k`) navigate, `Space` toggle a model or a whole
 provider, `A` toggle all, `←→` (or `h`/`l`) fold, `+` add a model ID or a

@@ -6,6 +6,7 @@ mod codex;
 mod gemini;
 mod grok;
 mod opencode;
+mod pi;
 
 use std::collections::{BTreeMap, HashMap};
 use std::fs;
@@ -109,6 +110,7 @@ pub fn adapters() -> Vec<Box<dyn Adapter>> {
         Box::new(opencode::OpenCode),
         Box::new(grok::Grok),
         Box::new(gemini::Gemini),
+        Box::new(pi::Pi),
     ]
 }
 
