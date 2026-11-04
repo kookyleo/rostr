@@ -13,8 +13,9 @@ requests, or route traffic.
 ## Status
 
 `rostr discover` is implemented: it finds local AI agents and their models and
-lets you choose the models to track. Evaluation, quota tracking and selection are
-not implemented yet.
+lets you choose the models to track. `rostr quota import` and `rostr quota query`
+provide local quota observations with explicit Unknown states. Evaluation and
+automatic runtime selection are not implemented yet.
 
 ## Install
 
@@ -29,6 +30,19 @@ rostr discover            # scan agents, choose models in a TUI, review, save
 rostr discover --dry-run  # print the merged result and warnings; save nothing
 rostr discover --yes      # save the default selection without the TUI
 ```
+
+### Local quota observations
+
+```sh
+rostr quota import /path/to/quota-snapshot.yaml
+rostr quota query --agent claude-code --metric subscription_usage --unit percent \
+  --min-remaining 20 --max-age 120 --json
+```
+
+Quota import supports JSON/YAML snapshots and existing Claude statusline exports.
+It never starts agents, reads credentials or connects to a network. Query is
+read-only; unknown or expired balances never become zero or unlimited. See the
+[export format, fixtures and limitations](docs/quota.md).
 
 ### Model discovery
 

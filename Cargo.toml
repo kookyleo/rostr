@@ -9,7 +9,7 @@ repository = "https://github.com/kookyleo/rostr"
 readme = "README.md"
 keywords = ["ai", "models", "registry", "cli", "agents"]
 categories = ["command-line-utilities"]
-include = ["src/**", "Cargo.toml", "Cargo.lock", "README.md", "LICENSE"]
+include = ["src/**", "docs/**", "Cargo.toml", "Cargo.lock", "README.md", "LICENSE"]
 
 [dependencies]
 anyhow = "1.0.104"

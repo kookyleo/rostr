@@ -1,0 +1,20 @@
+{
+  "version": 1,
+  "claude_statusline": {
+    "event_id": "claude-fixture-1",
+    "observed_at": 1793754000000,
+    "target": {
+      "agent": "claude-code", "instance": "default", "model": "anthropic/claude-sonnet-4-5",
+      "route": "anthropic-subscription", "account": "fixture-account-a", "raw_provider": "anthropic",
+      "raw_model": "claude-sonnet-4-5", "profile": null, "billing_mode": "subscription"
+    },
+    "statusline": {
+      "model": {"id": "claude-sonnet-4-5", "display_name": "Sonnet"},
+      "context_window": {"used_percentage": 99},
+      "rate_limits": {
+        "five_hour": {"used_percentage": 65, "resets_at": 1793761200},
+        "seven_day": {"used_percentage": 100, "resets_at": 1794358800}
+      }
+    }
+  }
+}

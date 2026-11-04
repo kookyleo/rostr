@@ -1,8 +1,5 @@
-mod discover;
-mod model_id;
-mod scope;
+use rostr::{discover, model_id, quota, scope, store};
 mod selection;
-mod store;
 mod tui;
 
 use std::io::IsTerminal;
@@ -19,6 +16,7 @@ fn cli() -> Command {
     Command::new(env!("CARGO_PKG_NAME"))
         .version(env!("CARGO_PKG_VERSION"))
         .about(env!("CARGO_PKG_DESCRIPTION"))
+        .subcommand(quota::cli::command())
         .subcommand(
             Command::new("discover")
                 .about("Discover local AI agents and models, then choose the models to track")
@@ -50,6 +48,7 @@ fn main() {
     let matches = command.get_matches_mut();
     let result = match matches.subcommand() {
         Some(("discover", m)) => run_discover(m),
+        Some(("quota", m)) => quota::cli::run(m),
         _ => command.print_help().map_err(Into::into),
     };
     if let Err(e) = result {

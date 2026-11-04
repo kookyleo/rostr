@@ -14,7 +14,7 @@ use crate::discover::{Candidate, Source};
 use crate::model_id;
 
 pub const FILE_NAME: &str = "rostr.db";
-const SCHEMA_VERSION: i64 = 1;
+const SCHEMA_VERSION: i64 = 2;
 
 const SCHEMA: &str = "
 CREATE TABLE models (
@@ -69,7 +69,7 @@ pub struct Record<'a> {
 }
 
 pub struct Store {
-    conn: Connection,
+    pub(crate) conn: Connection,
 }
 
 impl Store {
@@ -96,7 +96,7 @@ impl Store {
         let conn = Connection::open_with_flags(path, OpenFlags::SQLITE_OPEN_READ_ONLY)
             .with_context(|| format!("cannot open {}", path.display()))?;
         let version: i64 = conn.pragma_query_value(None, "user_version", |r| r.get(0))?;
-        if version != SCHEMA_VERSION {
+        if version != 1 && version != SCHEMA_VERSION {
             bail!(
                 "{} has schema version {version}; run `rostr discover` to update it",
                 path.display()
@@ -110,15 +110,18 @@ impl Store {
         let version: i64 = self
             .conn
             .pragma_query_value(None, "user_version", |r| r.get(0))?;
-        match version {
-            0 => {
-                self.conn.execute_batch(SCHEMA)?;
-                self.conn
-                    .pragma_update(None, "user_version", SCHEMA_VERSION)?;
-            }
-            SCHEMA_VERSION => {}
-            v => bail!("database schema version {v} is newer than this rostr supports"),
+        if version > SCHEMA_VERSION {
+            bail!("database schema version {version} is newer than this rostr supports");
         }
+        let tx = self.conn.unchecked_transaction()?;
+        if version == 0 {
+            tx.execute_batch(SCHEMA)?;
+        }
+        if version < 2 {
+            tx.execute_batch(include_str!("quota/schema.sql"))?;
+        }
+        tx.pragma_update(None, "user_version", SCHEMA_VERSION)?;
+        tx.commit()?;
         Ok(())
     }
 
