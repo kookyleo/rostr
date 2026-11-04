@@ -1,4 +1,4 @@
-use rostr::{discover, model_id, quota, scope, store};
+use rostr::{discover, model_id, quota, scope, score, store};
 mod selection;
 mod tui;
 
@@ -17,6 +17,7 @@ fn cli() -> Command {
         .version(env!("CARGO_PKG_VERSION"))
         .about(env!("CARGO_PKG_DESCRIPTION"))
         .subcommand(quota::cli::command())
+        .subcommand(score::cli::command())
         .subcommand(
             Command::new("discover")
                 .about("Discover local AI agents and models, then choose the models to track")
@@ -49,6 +50,7 @@ fn main() {
     let result = match matches.subcommand() {
         Some(("discover", m)) => run_discover(m),
         Some(("quota", m)) => quota::cli::run(m),
+        Some(("score", m)) => score::cli::run(m),
         _ => command.print_help().map_err(Into::into),
     };
     if let Err(e) = result {

@@ -2,20 +2,28 @@
 
 **AI Model Resource Registry**
 
-Rostr is a lightweight CLI for AI agents to discover, evaluate, and select AI
-models based on capabilities, benchmarks, available quotas, and availability.
+Rostr is a lightweight CLI that gives AI agents a local, deterministic view of
+the models they can use: which models are configured, what quota observations
+exist for them, and what public benchmarks say about them.
 
-The project aims to unify model metadata, evaluation results, and subscription
-quotas. Queries and selection should use metadata and deterministic algorithms
-without consuming model tokens. Rostr does not perform inference, proxy model
-requests, or route traffic.
+Queries read local files and `rostr.db` only and use no model tokens. Rostr
+does not perform inference, proxy model requests, route traffic, or pick a
+model for you; callers apply their own policy to the data.
 
 ## Status
 
-`rostr discover` is implemented: it finds local AI agents and their models and
-lets you choose the models to track. `rostr quota refresh --local`,
-`rostr quota import` and `rostr quota query` provide local quota observations with explicit Unknown states. Evaluation and
-automatic runtime selection are not implemented yet.
+| Command | State |
+| --- | --- |
+| `rostr discover` | Implemented: finds local agents and models, saves your model scope |
+| `rostr quota refresh --local` / `import` / `query` | Implemented: local quota observations with explicit Unknown states |
+| `rostr score refresh` / `import` / `query` / `sources` | Implemented: public benchmark scores on five axes |
+
+### Roadmap
+
+- Score phase 2: a TUI to review unmatched or ambiguous model mappings
+  (today: `scores.yaml` aliases), and more verified sources for the
+  `instruction` and `multimodal` axes.
+- More native local quota observers (only Codex and Grok Build today).
 
 ## Install
 
@@ -48,6 +56,26 @@ read-only; unknown or expired balances never become zero or unlimited. See the
 Codex rollout windows and Grok Build billing log periods are read directly from
 disk. Missing data and unresolved account identity remain Unknown; refresh never
 starts agents, reads auth values, or connects to a network.
+
+### Public benchmark scores
+
+```sh
+rostr score refresh        # the only networked command: fixed HTTPS URLs, TLS verified
+rostr score sources        # sources, licenses, rank table, last snapshots
+rostr score query          # selected models; or --model <provider>/<model>, --axis, --json
+```
+
+Axes: `general`, `coding`, `reasoning`, `multimodal`, `instruction`. For each
+model and axis, the first qualified observation from a fixed rank table of
+[Epoch AI](https://epoch.ai/benchmarks) and
+[LMArena](https://huggingface.co/datasets/lmarena-ai/leaderboard-dataset)
+metrics wins (both CC BY 4.0). Sources are never averaged. Each result is the
+board's native value with `known`, `stale` or `unknown` state and provenance:
+source, metric, `as_of`, board key and how the model was matched. Missing or
+ambiguous models are `unknown` with a null value, never 0. Model IDs are mapped
+through `scores.yaml` aliases, then builtin aliases, then deterministic name
+rules. There is no fuzzy matching. See [scores, sources, mapping and
+`scores.yaml`](docs/score.md).
 
 ### Model discovery
 
@@ -115,6 +143,8 @@ exceptions:
 | `models`        | Every known model, first and last seen time, and its resolved state (`selected`, `reason`) |
 | `model_sources` | Which agent reported each model, and why (default model, model list, ...) |
 | `scans`         | Discovery history |
+| quota tables    | Local quota observations (schema v2, see [docs/quota.md](docs/quota.md)) |
+| `score_runs`, `score_rows` | Benchmark board snapshots (schema v3, see [docs/score.md](docs/score.md)) |
 
 A model that a later scan does not find stays in the database. The TUI marks
 it `missing` (dim row) with its last known agents, and `D` removes it. Models
@@ -128,6 +158,7 @@ its agents, in parentheses.
 ```sh
 cargo check
 cargo fmt --check
+cargo clippy --all-targets -- -D warnings
 cargo test
 ```
 

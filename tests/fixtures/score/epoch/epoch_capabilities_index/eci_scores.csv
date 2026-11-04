@@ -1,0 +1,5 @@
+Model,Display name,eci,eci_ci_low,eci_ci_high,date,Organization,Country (of organization),Model accessibility,Accessibility group,model_versions
+Claude Opus 4.5,Claude Opus 4.5,150.1,148.0,152.2,2025-11-24,Anthropic,United States of America,API access,Closed weights,
+GPT-5,GPT-5,140.5,138.0,143.0,2025-08-07,OpenAI,United States of America,API access,Closed weights,
+GPT-6 Astra,GPT-6 Astra,169.0,165.0,174.0,2026-09-03,OpenAI,United States of America,API access,Closed weights,
+Broken Row,Broken Row,,,,2026-01-01,Example,,,,
