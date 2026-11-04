@@ -247,7 +247,7 @@ fn local_refresh_runs_file_readers_is_idempotent_and_never_starts_agents() {
     write(d.path(), ".grok/logs/unified.jsonl", GROK);
     let bin = d.path().join("bin");
     let marker = d.path().join("agent-started");
-    for name in ["codex", "grok", "curl", "wget"] {
+    for name in ["claude", "codex", "grok", "curl", "wget"] {
         write(
             &bin,
             name,
@@ -270,7 +270,8 @@ fn local_refresh_runs_file_readers_is_idempotent_and_never_starts_agents() {
             String::from_utf8_lossy(&out.stderr)
         );
         let reports: Vec<ProbeReport> = serde_json::from_slice(&out.stdout).unwrap();
-        assert_eq!(reports.len(), 2);
+        // Codex, Grok Build and the Claude status line snapshot (absent here).
+        assert_eq!(reports.len(), 3);
         assert_eq!(reports.iter().map(|r| r.buckets.len()).sum::<usize>(), 3);
     }
     assert!(!marker.exists());

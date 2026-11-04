@@ -2,6 +2,7 @@
 //! environment variables: no process runs, no network request, no inference.
 
 mod claude;
+pub(crate) use claude::resolve as resolve_claude_model;
 mod codex;
 mod gemini;
 mod grok;

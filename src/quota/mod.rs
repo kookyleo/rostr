@@ -1,4 +1,5 @@
 //! Local observations only. No transport, process runner, or credential reader is exposed.
+pub mod claude;
 pub mod cli;
 mod native;
 mod repository;

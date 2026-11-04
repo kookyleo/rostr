@@ -18,7 +18,7 @@ pub struct GrokBuildNativeProbe;
 pub fn native_probes() -> Vec<Box<dyn QuotaProbe>> {
     vec![Box::new(CodexNativeProbe), Box::new(GrokBuildNativeProbe)]
 }
-fn digest(data: impl AsRef<[u8]>) -> String {
+pub(super) fn digest(data: impl AsRef<[u8]>) -> String {
     format!("{:x}", Sha256::digest(data.as_ref()))
 }
 fn stamp(v: &Value) -> Option<i64> {
@@ -33,7 +33,7 @@ fn label(s: &str) -> bool {
         && s.bytes()
             .all(|b| b.is_ascii_alphanumeric() || b"-_.:/".contains(&b))
 }
-fn empty(id: &str, installed: bool, request: &ProbeRequest) -> ProbeReport {
+pub(super) fn empty(id: &str, installed: bool, request: &ProbeRequest) -> ProbeReport {
     ProbeReport {
         probe_id: id.into(),
         version: 1,
@@ -57,7 +57,7 @@ fn empty(id: &str, installed: bool, request: &ProbeRequest) -> ProbeReport {
         issues: vec![],
     }
 }
-fn finish(mut r: ProbeReport, unsupported: bool) -> Result<ProbeReport, ProbeError> {
+pub(super) fn finish(mut r: ProbeReport, unsupported: bool) -> Result<ProbeReport, ProbeError> {
     if !r.buckets.is_empty() {
         r.completeness = Completeness::Partial;
     } else if unsupported {
