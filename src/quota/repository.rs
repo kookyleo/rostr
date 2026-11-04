@@ -129,7 +129,7 @@ impl QuotaRepository for Store {
             .pragma_query_value(None, "user_version", |r| r.get(0))?;
         ensure!(
             version == 2,
-            "quota requires schema v2; run `rostr quota import <snapshot>` to migrate; query is read-only"
+            "quota requires schema v2; run `rostr quota refresh --local` or `rostr quota import <snapshot>` to migrate; query is read-only"
         );
         ensure!(q.max_age_ms >= 0, "max age must be nonnegative");
         for r in &q.requirements {
@@ -201,7 +201,8 @@ impl QuotaRepository for Store {
                     unknown = true;
                 }
                 // Every applicable hard window participates, even if its metric is not requested.
-                if b.state == AmountState::Known
+                if b.enforcement == Enforcement::Hard
+                    && b.state == AmountState::Known
                     && b.remaining
                         .as_deref()
                         .map(decimal)
@@ -234,7 +235,7 @@ impl QuotaRepository for Store {
                 for b in matched {
                     let fresh = b.valid_until.is_some_and(|v| v > q.as_of)
                         && q.as_of.saturating_sub(b.observed_at) <= q.max_age_ms;
-                    if !fresh {
+                    if !fresh || b.enforcement != Enforcement::Hard {
                         continue;
                     }
                     if let Some(v) = &b.remaining {

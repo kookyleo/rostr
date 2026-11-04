@@ -12,6 +12,8 @@ categories = ["command-line-utilities"]
 include = ["src/**", "docs/**", "Cargo.toml", "Cargo.lock", "README.md", "LICENSE"]
 
 [dependencies]
+chrono = { version = "0.4", default-features = false, features = ["std"] }
+sha2 = "0.10"
 anyhow = "1.0.104"
 clap = "4.5"
 ratatui = "0.29.0"

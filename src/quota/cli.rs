@@ -7,10 +7,39 @@ use std::path::Path;
 pub fn command() -> Command {
     Command::new("quota")
         .about(
-            "Import and query local quota observations; never runs agents or connects to a network",
+            "Refresh, import and query local quota observations; never runs agents or connects to a network",
         )
         .subcommand_required(true)
         .subcommand(Command::new("import").arg(Arg::new("path").required(true)))
+        .subcommand(
+            Command::new("refresh")
+                .about("Read existing local agent state without starting agents or accessing a network")
+                .arg(
+                    Arg::new("local")
+                        .long("local")
+                        .required(true)
+                        .action(ArgAction::SetTrue),
+                )
+                .arg(
+                    Arg::new("agent")
+                        .long("agent")
+                        .value_parser(["codex", "grok-build"]),
+                )
+                .arg(
+                    Arg::new("max-age")
+                        .long("max-age")
+                        .default_value("60")
+                        .value_parser(clap::value_parser!(u32))
+                        .help("Maximum observation age in seconds"),
+                )
+                .arg(
+                    Arg::new("claude-statusline")
+                        .long("claude-statusline")
+                        .value_name("PATH")
+                        .help("Also read an existing Claude statusline export with identity and original time"),
+                )
+                .arg(Arg::new("json").long("json").action(ArgAction::SetTrue)),
+        )
         .subcommand(
             Command::new("query")
                 .arg(Arg::new("agent").long("agent").value_parser([
@@ -82,14 +111,20 @@ pub fn run(m: &ArgMatches) -> Result<()> {
         .ok()
         .filter(|s| !s.is_empty())
         .context("HOME is not set")?;
-    let vars = ["ROSTR_DATA_DIR", "XDG_DATA_HOME"]
-        .into_iter()
-        .filter_map(|key| {
-            std::env::var(key)
-                .ok()
-                .map(|value| (key.to_string(), value))
-        })
-        .collect();
+    let vars = [
+        "ROSTR_DATA_DIR",
+        "XDG_DATA_HOME",
+        "CODEX_HOME",
+        "GROK_HOME",
+        "PATH",
+    ]
+    .into_iter()
+    .filter_map(|key| {
+        std::env::var(key)
+            .ok()
+            .map(|value| (key.to_string(), value))
+    })
+    .collect();
     let env = Env {
         home: home.into(),
         vars,
@@ -97,6 +132,43 @@ pub fn run(m: &ArgMatches) -> Result<()> {
     let path = crate::scope::data_dir(&env.home, |k| env.var(k).map(String::from))
         .join(crate::store::FILE_NAME);
     match m.subcommand() {
+        Some(("refresh", args)) => {
+            let selected = args.get_one::<String>("agent").map(String::as_str);
+            let mut probes = native_probes();
+            probes.retain(|probe| match selected {
+                Some("codex") => probe.id() == "codex-native",
+                Some("grok-build") => probe.id() == "grok-build-native",
+                _ => true,
+            });
+            if let Some(path) = args.get_one::<String>("claude-statusline") {
+                probes.push(Box::new(LocalSnapshotProbe { path: path.into() }));
+            }
+            let request = ProbeRequest {
+                access: AccessPolicy::LocalOnly,
+                as_of: now(),
+                max_age_ms: i64::from(*args.get_one::<u32>("max-age").unwrap()) * 1000,
+            };
+            let reports = probes
+                .iter()
+                .map(|probe| probe.observe(&ProbeContext { env: &env }, &request))
+                .collect::<std::result::Result<Vec<_>, _>>()?;
+            let mut store = Store::open(&path)?;
+            for report in &reports {
+                store.record_probe(report)?;
+            }
+            if args.get_flag("json") {
+                println!("{}", serde_json::to_string_pretty(&reports)?);
+            } else {
+                for report in &reports {
+                    println!(
+                        "{}: {:?}, {} local quota windows",
+                        report.probe_id,
+                        report.completeness,
+                        report.buckets.len()
+                    );
+                }
+            }
+        }
         Some(("import", args)) => {
             let probe: Box<dyn QuotaProbe> = Box::new(LocalSnapshotProbe {
                 path: Path::new(args.get_one::<String>("path").unwrap()).to_path_buf(),
@@ -188,7 +260,7 @@ pub fn run(m: &ArgMatches) -> Result<()> {
                 }
             }
         }
-        _ => bail!("expected quota import or query"),
+        _ => bail!("expected quota refresh, import or query"),
     }
     Ok(())
 }

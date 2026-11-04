@@ -1,0 +1,2 @@
+{"ts":"2026-11-04T00:59:00Z","src":"shell","lvl":"info","msg":"unrelated event","ctx":{"prompt":"NEVER_PERSIST_PROMPT"}}
+{"ts":"2026-11-04T01:00:00Z","src":"shell","lvl":"info","msg":"billing: fetched credits config","ctx":{"config":{"currentPeriod":{"type":"USAGE_PERIOD_TYPE_WEEKLY","start":"2026-11-04T00:00:00Z","end":"2026-11-11T00:00:00Z"},"creditUsagePercent":40,"prepaidBalance":{"val":200},"onDemandCap":{"val":100}}}}

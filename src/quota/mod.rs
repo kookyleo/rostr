@@ -1,6 +1,8 @@
 //! Local observations only. No transport, process runner, or credential reader is exposed.
 pub mod cli;
+mod native;
 mod repository;
+pub use native::{CodexNativeProbe, GrokBuildNativeProbe, native_probes};
 mod snapshot;
 pub use repository::QuotaRepository;
 pub use snapshot::{LocalSnapshotProbe, import_file};

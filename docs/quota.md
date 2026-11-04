@@ -1,12 +1,15 @@
-# Local quota observations (Phase A)
+# Local quota observations
 
-`rostr quota import PATH` reads one JSON or YAML export, validates it before opening
-the database, then records it atomically. It never launches an agent, executes a
+`rostr quota refresh --local` reads existing Codex and Grok Build state directly.
+`rostr quota import PATH` remains available for explicit JSON/YAML exports. Both
+validate observations before recording each report atomically. It never launches an agent, executes a
 credential command, reads authentication files, or connects to a network. The
 independent `QuotaProbe` interface exposes only local context and
 `AccessPolicy::LocalOnly`; discovery does not run probes.
 
 ```sh
+rostr quota refresh --local
+rostr quota refresh --local --agent codex --json
 rostr quota import tests/fixtures/quota/claude-statusline.json
 rostr quota query --agent claude-code --metric subscription_usage --unit percent \
   --min-remaining 20 --max-age 120 --json
@@ -38,9 +41,77 @@ scalar units, and the Rust API also supports namespaced units.
 
 Eligible means only that the supplied observations meet the declared constraints.
 It does not authenticate a route, verify entitlement or reserve quota. Query lists
-explicitly imported targets independently of discovery scope; callers must apply
-current `scope.yaml` intent separately. Imported targets are user assertions, not
-proof that a matching CLI is installed.
+observed targets independently of discovery scope; callers must apply
+current `scope.yaml` intent separately. Imported targets are user assertions. Native targets describe local cache evidence,
+which does not prove authentication or current execution routing.
+
+## Native Codex and Grok Build observers
+
+The independent native registry runs both file readers on local refresh and reports
+`not_installed`, `no_observation`, `unsupported`, or `partial` per probe. No agent
+is launched, no App Server/ACP/HTTP call is made, and auth files are never opened.
+Directory existence or an executable found on PATH only establishes installation.
+`--agent codex|grok-build` restricts refresh; `--max-age` defaults to 60 seconds.
+An optional `--claude-statusline PATH` also reads the existing Claude export format
+below. There is no automatic hook installation or guessed Claude cache path.
+
+| Observer | Files read | Accepted evidence |
+| --- | --- | --- |
+| Codex | `$CODEX_HOME/sessions/**/*.jsonl`, default `~/.codex/sessions` | `session_meta.model_provider`, `turn_context.model`, and `event_msg` / `token_count` / `rate_limits` |
+| Grok Build | `$GROK_HOME/logs/unified.jsonl` and bounded `config.toml`, default `~/.grok` | Exact shell/info `billing: fetched credits config` event with `ctx.config.creditUsagePercent` and `currentPeriod` |
+
+Codex uses the core rollout snake_case schema: independent `limit_id` snapshots,
+`primary` and `secondary` windows with numeric `used_percent`, positive integer
+`window_minutes`, and Unix-second `resets_at`. Missing/null `limit_id` uses the
+legacy `codex` pool name. Only OpenAI-provider rollouts with model evidence are
+supported. CamelCase App Server payloads are not interpreted as rollouts. All
+recognized limit IDs remain separate; this parser does not collapse them into a
+single percentage. Fixtures pin this subset to the
+[Codex protocol source](https://github.com/openai/codex/blob/53ff712a48379ce8df605e292afd6046ca88ae9b/codex-rs/protocol/src/protocol.rs).
+
+Grok accepts RFC3339 `ts`, weekly/monthly `currentPeriod.type`, and RFC3339
+`start`/`end`; it preserves the period end as reset. The supported event is emitted
+by the [billing implementation](https://github.com/xai-org/grok-build/blob/37949780c144e37df692e3d669051a21fec24f20/crates/codegen/xai-grok-shell/src/extensions/billing.rs),
+using the [unified log writer](https://github.com/xai-org/grok-build/blob/main/crates/codegen/xai-grok-telemetry/src/logs/unified_log.rs).
+The configured model labels only describe candidate targets. No configured model
+creates a balance. With no configured model, `xai/unknown` explicitly represents
+unresolved model evidence. Session `signals.json` token totals, monetary legacy
+monthly usage, prepaid balance, and on-demand caps are not interpreted as included
+period quota. Exhausting the included pool cannot prove that on-demand access is
+unavailable.
+
+These schemas supply no verified account identity. Codex isolates unresolved
+accounts per rollout path; Grok isolates them per billing event time and config
+root. Labels and event IDs are SHA-256 digests of local scope or extracted
+observations; paths, prompts, auth values, and raw logs are not stored. Multiple
+Grok model candidates bind to one pool/sample, rather than multiplying its balance.
+Different rollouts are not assumed to share an account. Native buckets have
+`identity_unresolved`, Unknown confidence/enforcement, and reports are Partial;
+queries therefore remain Unknown even when a numeric percentage is available.
+An explicit zero is preserved as zero; neither missing data nor schema drift
+becomes zero or Unlimited. Native data is not promoted to an authenticated account
+by whatever credentials happen to exist now.
+
+Original event time is preserved, with TTL capped by reset. Repeated identical
+Codex windows within the scanned evidence retain the earlier timestamp because
+Codex can re-emit cached limits alongside newer token usage. Even the first seen
+event may contain cached provider data: this is bounded historical evidence, not
+a live quota request. Copying files or refreshing Rostr does not renew timestamps.
+No absolute token limits are inferred from percentages, model context, plans, or
+session usage. Out-of-range percentages retain their original value and have
+Unknown remaining balance.
+
+Reads are bounded: up to 128 Codex files, five directory levels, 4,096 directory
+entries total (at most 512 per directory), a 256 KiB prefix and roughly 4 MiB tail
+per file, and 256 KiB per JSONL record. Enumeration prefers descending names within
+the bounded directory sample; it cannot guarantee the newest file in larger
+directories. Incomplete final lines and unrelated records are ignored. Oversized
+records or unsupported recognized schemas do not fabricate samples. Symlink files
+and discovered symlink subdirectories are skipped; explicitly configured roots
+may themselves be symlinks. Successful bounded reads remain Partial. Unsupported
+versions, missing windows, history outside these bounds, account binding, model
+specific sharing, and richer credit/billing formats remain gaps. No observer
+executes configuration commands or tries a network fallback.
 
 ## Claude statusline export
 
@@ -149,14 +220,13 @@ snapshot boundaries. `current_quota` and `effective_constraints` expose latest
 samples with nullable decimal TEXT amounts; never compare their text
 lexicographically. Shared pools are stored once regardless of target count.
 History remains intact, and model deletion cannot cascade into quota history.
-Existing discovery tables and scope writes are unchanged. Import (or discovery
-save) migrates v1 transactionally; quota query on v1 prints migration guidance.
+Existing discovery tables and scope writes are unchanged. Refresh, import, or discovery
+save migrates v1 transactionally; quota query on v1 prints migration guidance.
 Database location honors `ROSTR_DATA_DIR` and `XDG_DATA_HOME` like discovery.
 
-Codex native session schema, other native observers, network App Server/ACP and
-provider APIs are deferred. No `refresh`, `--network`, background polling,
-identity auto-discovery or inference fallback exists in Phase A. Subscription
-samples retain observations but do not infer entitlements. Error/backoff DTOs are
-available for future probes; there is no control-plane error fetching in this
-phase. Per-requirement window selection, custom TTL configuration, automatic
-scope intersection and richer billing policies remain follow-up work.
+OpenCode/Gemini/Pi native observers, network App Server/ACP and provider APIs remain
+deferred. There is no `--network`, background polling, authenticated identity
+auto-discovery or inference fallback. Subscription samples retain observations but
+do not infer entitlements. Error/backoff DTOs remain available for future probes.
+Per-requirement window selection, custom TTL policy, automatic scope intersection
+and richer billing policies remain follow-up work.

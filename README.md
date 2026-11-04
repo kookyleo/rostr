@@ -13,8 +13,8 @@ requests, or route traffic.
 ## Status
 
 `rostr discover` is implemented: it finds local AI agents and their models and
-lets you choose the models to track. `rostr quota import` and `rostr quota query`
-provide local quota observations with explicit Unknown states. Evaluation and
+lets you choose the models to track. `rostr quota refresh --local`,
+`rostr quota import` and `rostr quota query` provide local quota observations with explicit Unknown states. Evaluation and
 automatic runtime selection are not implemented yet.
 
 ## Install
@@ -34,6 +34,8 @@ rostr discover --yes      # save the default selection without the TUI
 ### Local quota observations
 
 ```sh
+rostr quota refresh --local
+# Optional export import (for example, an existing Claude statusline snapshot):
 rostr quota import /path/to/quota-snapshot.yaml
 rostr quota query --agent claude-code --metric subscription_usage --unit percent \
   --min-remaining 20 --max-age 120 --json
@@ -42,7 +44,10 @@ rostr quota query --agent claude-code --metric subscription_usage --unit percent
 Quota import supports JSON/YAML snapshots and existing Claude statusline exports.
 It never starts agents, reads credentials or connects to a network. Query is
 read-only; unknown or expired balances never become zero or unlimited. See the
-[export format, fixtures and limitations](docs/quota.md).
+[native file sources, export format, fixtures and limitations](docs/quota.md).
+Codex rollout windows and Grok Build billing log periods are read directly from
+disk. Missing data and unresolved account identity remain Unknown; refresh never
+starts agents, reads auth values, or connects to a network.
 
 ### Model discovery
 

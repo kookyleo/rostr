@@ -1,0 +1,3 @@
+{"timestamp":"2026-11-04T00:50:00Z","type":"session_meta","payload":{"id":"fixture-session","model_provider":"openai","cli_version":"0.134.0"}}
+{"timestamp":"2026-11-04T00:50:01Z","type":"turn_context","payload":{"model":"gpt-5.3-codex"}}
+{"timestamp":"2026-11-04T01:00:00Z","type":"event_msg","payload":{"type":"token_count","info":{"total_token_usage":{"total_tokens":12345}},"rate_limits":{"limit_id":"codex","primary":{"used_percent":25,"window_minutes":300,"resets_at":1793761200},"secondary":{"used_percent":72.5,"window_minutes":10080,"resets_at":1794358800}}}}
